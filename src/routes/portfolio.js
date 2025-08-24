@@ -5,12 +5,22 @@ const {
   getPortfolio,
 } = require("../controllers/portfolioController");
 
-// This route will handle saving and updating the portfolio data.
-// It points to POST http://localhost:5000/api/portfolio
-router.post("/", savePortfolio);
+// 1. Import our new 'protect' middleware
+const { protect } = require("../middleware/authMiddleware");
 
-// This route will handle fetching a portfolio's data by their ID.
-// It points to GET http://localhost:5000/api/portfolio/someUserId
-router.get("/:userId", getPortfolio);
+// 2. Apply the middleware to the routes
+// Now, when a request is made to these endpoints, the 'protect' function will run first.
+// If the user's token is valid, `req.user` will be available in the controller.
+// If the token is invalid, the middleware will send an error and the controller will never run.
+
+// Protects POST /api/portfolio
+router.post("/", protect, savePortfolio);
+
+// Protects GET /api/portfolio/:userId
+// Note: While we could get the userId from the URL, it's more secure
+// to get it from the validated token to ensure users can only fetch their own data.
+// We will adjust the controller for this in the next step.
+router.get("/:userId", protect, getPortfolio);
+
 
 module.exports = router;
