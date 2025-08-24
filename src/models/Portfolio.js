@@ -1,13 +1,21 @@
 const mongoose = require("mongoose");
 
 const PortfolioSchema = new mongoose.Schema({
-  // This field now correctly links to the User model's unique _id
   userId: {
-    type: mongoose.Schema.Types.ObjectId, // This is MongoDB's special ID type
-    ref: 'User', // This creates an official link to the User collection
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
     required: true,
     unique: true,
   },
+
+  // --- NEW FIELD ---
+  // Store the name of the template the user has selected.
+  template: {
+    type: String,
+    required: true,
+    default: 'template1', // Default to template1 for new portfolios
+  },
+  // -----------------
 
   data: {
     type: mongoose.Schema.Types.Mixed,
