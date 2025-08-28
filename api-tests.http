@@ -1,0 +1,36 @@
+### Register a new user
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Dilip Kumar",
+  "username": "dilip-k-7",
+  "email": "dili1p@example.com",
+  "password": "password1234"
+}
+
+### =============================================
+### Login API Tests
+### =============================================
+
+### 1. LOGIN with CORRECT credentials
+# This should succeed and return a new token.
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "dilip@example.com",
+  "password": "password123"
+}
+
+### ---------------------------------------------
+
+### 2. LOGIN with INCORRECT password
+# This should fail with a 401 Unauthorized error.
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "dilip@example.com",
+  "password": "wrongpassword"
+}
