@@ -45,7 +45,7 @@ const authRoutes = require("./routes/auth");
 const portfolioRoutes = require("./routes/portfolio");
 const publicPortfolioRoutes = require("./routes/publicPortfolio");
 const uploadRoutes = require("./routes/upload");
-const testRoutes = require("./routes/test");
+
 
 
 // Mount the routers on their specific base paths.
@@ -54,7 +54,7 @@ app.use("/api/auth", authRoutes); // For user registration and login.
 app.use("/api/portfolio", portfolioRoutes); // For saving and loading portfolio data (protected).
 app.use("/api/public/portfolio", publicPortfolioRoutes); // For fetching public portfolio data.
 app.use("/api/upload", uploadRoutes); // For getting Cloudinary upload signatures (protected).
-app.use("/api/test", testRoutes); // Your original test route.
+
 // ------------------
 
 
@@ -63,5 +63,5 @@ app.use("/api/test", testRoutes); // Your original test route.
 const PORT = process.env.PORT || 5000;
 
 // Start the server and listen for incoming requests on the specified port.
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 // ---------------------------

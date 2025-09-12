@@ -20,7 +20,7 @@ Content-Type: application/json
 
 {
   "email": "dilip@example.com",
-  "password": "password123"
+  "password": "password12"
 }
 
 ### ---------------------------------------------

@@ -80,3 +80,50 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ success: false, error: "Server Error" });
   }
 };
+
+
+exports.updatePassword = async (req, res) => {
+  // 1. Get the current and new passwords from the request body
+  const { currentPassword, newPassword } = req.body;
+
+  // Basic validation
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ success: false, error: "Please provide both current and new passwords." });
+  }
+  
+  if (newPassword.length < 6) {
+    return res.status(400).json({ success: false, error: "New password must be at least 6 characters long." });
+  }
+
+  try {
+    // 2. The `protect` middleware has already found the user and attached it to `req.user`.
+    //    We need to find them again, but this time select the password field.
+    const user = await User.findById(req.user._id).select("+password");
+
+    // This should theoretically never happen if the user has a valid token, but it's a good safety check.
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+
+    // 3. Use our model's method to verify the current password
+    const isMatch = await user.matchPassword(currentPassword);
+
+    if (!isMatch) {
+      return res.status(401).json({ success: false, error: "Incorrect current password" });
+    }
+
+    // 4. If the current password is correct, set the new password
+    user.password = newPassword;
+
+    // 5. Save the user. This is crucial because it will trigger our 'pre-save' hook,
+    //    which automatically hashes the new password before saving it.
+    await user.save();
+
+    // 6. Send back a success response
+    res.status(200).json({ success: true, message: "Password updated successfully" });
+
+  } catch (error) {
+    console.error("Update Password Error:", error);
+    res.status(500).json({ success: false, error: "Server Error" });
+  }
+};
