@@ -14,7 +14,7 @@ const runTest = async () => {
     // 1. Connect to the database
     console.log("Attempting to connect to MongoDB...");
     await mongoose.connect(process.env.MONGO_URI);
-    console.log("✅ MongoDB Connected Successfully!");
+    console.log("MongoDB Connected Successfully!");
     console.log("------------------------------------");
 
     // 2. Create a new User instance
@@ -28,7 +28,7 @@ const runTest = async () => {
 
     // 3. Save the user to the database
     const savedUser = await testUser.save();
-    console.log("✅ User saved successfully!");
+    console.log("User saved successfully!");
     console.log("User's ID:", savedUser._id);
     console.log("Hashed Password (should not be 'password123'):", savedUser.password); // This will be undefined because of `select: false`
     console.log("------------------------------------");
