@@ -1,11 +1,9 @@
 const User = require("../models/User");
 const generateToken = require("../utils/generateToken");
-const sendEmail = require("../utils/sendEmail"); // For sending the reset email
-const crypto = require("crypto"); // For generating and hashing the reset token
+const sendEmail = require("../utils/sendEmail"); 
+const crypto = require("crypto"); 
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
-// @access  Public
+
 exports.registerUser = async (req, res) => {
   const { name, username, email, password } = req.body;
   try {
@@ -35,13 +33,21 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-// @desc    Authenticate a user & get token
-// @route   POST /api/auth/login
-// @access  Public
+
+// --- THIS FUNCTION HAS BEEN UPDATED ---
 exports.loginUser = async (req, res) => {
+  // The 'email' field from the form can now hold either an email or a username.
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ email }).select("+password");
+    // We convert the identifier to lowercase for a case-insensitive search.
+    const loginIdentifier = email.toLowerCase();
+
+    // Find the user by either their email OR their username using the $or operator.
+    const user = await User.findOne({
+      $or: [{ email: loginIdentifier }, { username: loginIdentifier }],
+    }).select("+password");
+
+    // The rest of the logic is the same.
     if (user && (await user.matchPassword(password))) {
       const token = generateToken(user._id);
       res.status(200).json({
@@ -55,17 +61,17 @@ exports.loginUser = async (req, res) => {
         },
       });
     } else {
-      res.status(401).json({ success: false, error: "Invalid email or password" });
+      // Use a more generic error message.
+      res.status(401).json({ success: false, error: "Invalid credentials" });
     }
   } catch (error) {
     console.error("Login Error:", error);
     res.status(500).json({ success: false, error: "Server Error" });
   }
 };
+// ------------------------------------
 
-// @desc    Update user password
-// @route   PUT /api/auth/update-password
-// @access  Private (Protected)
+
 exports.updatePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) {
@@ -92,7 +98,6 @@ exports.updatePassword = async (req, res) => {
   }
 };
 
-// --- UPDATED FORGOT PASSWORD CONTROLLER ---
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
   try {
@@ -100,29 +105,22 @@ exports.forgotPassword = async (req, res) => {
     if (!user) {
       return res.status(200).json({ success: true, message: "Email sent if a user with that email exists." });
     }
-
-    // This now returns a 6-digit code, e.g., "123456"
     const resetToken = user.getResetPasswordToken();
     await user.save({ validateBeforeSave: false });
-
-    // The reset URL is no longer needed. We create a new, simpler email message.
     const message = `
       <h1>You have requested a password reset</h1>
       <p>Your password reset code is:</p>
       <h2 style="font-size: 24px; letter-spacing: 2px;">${resetToken}</h2>
       <p>This code will expire in 10 minutes.</p>
     `;
-
     await sendEmail({
       email: user.email,
       subject: "DevPort - Your Password Reset Code",
       html: message,
     });
-
     res.status(200).json({ success: true, message: "Email sent if a user with that email exists." });
   } catch (error) {
     console.error("Forgot Password Error:", error);
-    // Safety net to clear token fields in case of an unexpected error
     if (user) {
         user.passwordResetToken = undefined;
         user.passwordResetExpires = undefined;
@@ -132,44 +130,28 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// --- UPDATED RESET PASSWORD CONTROLLER ---
 exports.resetPassword = async (req, res) => {
-  // Get the 6-digit code and user's email from the request BODY now
   const { resetCode, email, password } = req.body;
-  
   if (!resetCode || !email || !password) {
       return res.status(400).json({ success: false, error: "Please provide email, reset code, and a new password." });
   }
-
   try {
-    // Hash the incoming 6-digit code so we can find it in the database
     const hashedToken = crypto
-      .createHash("sha256")
+      .createHash("sha26")
       .update(resetCode)
       .digest("hex");
-
-    // Find the user by their email, the hashed token, and check if the token has expired.
-    // This is more secure as it ensures the code is for the correct user.
     const user = await User.findOne({
       email: email,
       passwordResetToken: hashedToken,
       passwordResetExpires: { $gt: Date.now() },
     });
-
     if (!user) {
       return res.status(400).json({ success: false, error: "Invalid or expired reset code" });
     }
-
-    // If the token is valid, set the new password
     user.password = password;
-    
-    // Clear the reset token fields so it can't be used again
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
-
-    // Save the user. The `pre-save` hook will hash the new password.
     await user.save();
-
     res.status(200).json({ success: true, message: "Password reset successful" });
   } catch (error) {
     console.error("Reset Password Error:", error);

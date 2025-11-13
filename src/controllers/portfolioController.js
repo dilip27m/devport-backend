@@ -1,9 +1,7 @@
 const Portfolio = require("../models/Portfolio");
 const User = require("../models/User");
 
-// --- UPDATED SAVE FUNCTION ---
 exports.savePortfolio = async (req, res) => {
-  // Get `template` from the body
   const { data, template } = req.body;
   const userId = req.user._id;
 
@@ -14,7 +12,6 @@ exports.savePortfolio = async (req, res) => {
   try {
     const portfolio = await Portfolio.findOneAndUpdate(
       { userId: userId },
-      // Save the `template` along with the `data`
       { data: data, template: template, lastUpdatedAt: Date.now() },
       { new: true, upsert: true, runValidators: true }
     );
@@ -25,14 +22,12 @@ exports.savePortfolio = async (req, res) => {
   }
 };
 
-// --- UPDATED PROTECTED GET FUNCTION ---
 exports.getPortfolio = async (req, res) => {
   try {
     const portfolio = await Portfolio.findOne({ userId: req.user._id });
     if (!portfolio) {
       return res.status(404).json({ success: false, error: "Portfolio not found for this user." });
     }
-    // Return the full portfolio object, including the template
     res.status(200).json({ success: true, data: portfolio });
   } catch (err) {
     console.error("Error getting portfolio:", err.message);
@@ -40,7 +35,6 @@ exports.getPortfolio = async (req, res) => {
   }
 };
 
-// --- UPDATED PUBLIC GET FUNCTION ---
 exports.getPublicPortfolio = async (req, res) => {
   try {
     const user = await User.findOne({ username: req.params.username.toLowerCase() });
@@ -49,7 +43,6 @@ exports.getPublicPortfolio = async (req, res) => {
     const portfolio = await Portfolio.findOne({ userId: user._id });
     if (!portfolio) { return res.status(404).json({ success: false, error: "Portfolio not found." }); }
 
-    // Return an object containing both the data and the template name
     res.status(200).json({
       success: true,
       portfolio: {
