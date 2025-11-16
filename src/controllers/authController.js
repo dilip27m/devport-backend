@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const Portfolio = require("../models/Portfolio"); // <-- We need the Portfolio model
 const generateToken = require("../utils/generateToken");
 const sendEmail = require("../utils/sendEmail"); 
 const crypto = require("crypto"); 
@@ -34,20 +35,13 @@ exports.registerUser = async (req, res) => {
 };
 
 
-// --- THIS FUNCTION HAS BEEN UPDATED ---
 exports.loginUser = async (req, res) => {
-  // The 'email' field from the form can now hold either an email or a username.
   const { email, password } = req.body;
   try {
-    // We convert the identifier to lowercase for a case-insensitive search.
     const loginIdentifier = email.toLowerCase();
-
-    // Find the user by either their email OR their username using the $or operator.
     const user = await User.findOne({
       $or: [{ email: loginIdentifier }, { username: loginIdentifier }],
     }).select("+password");
-
-    // The rest of the logic is the same.
     if (user && (await user.matchPassword(password))) {
       const token = generateToken(user._id);
       res.status(200).json({
@@ -61,7 +55,6 @@ exports.loginUser = async (req, res) => {
         },
       });
     } else {
-      // Use a more generic error message.
       res.status(401).json({ success: false, error: "Invalid credentials" });
     }
   } catch (error) {
@@ -69,7 +62,6 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ success: false, error: "Server Error" });
   }
 };
-// ------------------------------------
 
 
 exports.updatePassword = async (req, res) => {
@@ -137,7 +129,7 @@ exports.resetPassword = async (req, res) => {
   }
   try {
     const hashedToken = crypto
-      .createHash("sha26")
+      .createHash("sha256")
       .update(resetCode)
       .digest("hex");
     const user = await User.findOne({
@@ -158,3 +150,27 @@ exports.resetPassword = async (req, res) => {
     res.status(500).json({ success: false, error: "Server Error" });
   }
 };
+
+// --- NEW FUNCTION: DELETE ACCOUNT ---
+// @desc    Delete user account and all associated data
+// @route   DELETE /api/auth/delete-account
+// @access  Private (Protected)
+exports.deleteAccount = async (req, res) => {
+  try {
+    // The `protect` middleware gives us the ID of the logged-in user
+    const userId = req.user._id;
+
+    // First, delete the user's associated portfolio data to prevent orphans.
+    await Portfolio.deleteOne({ userId: userId });
+
+    // Then, delete the user document itself.
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({ success: true, message: "Account deleted successfully." });
+
+  } catch (error) {
+    console.error("Delete Account Error:", error);
+    res.status(500).json({ success: false, error: "Server Error" });
+  }
+};
+// ------------------------------------

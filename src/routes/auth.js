@@ -1,16 +1,17 @@
 const express = require("express");
 const router = express.Router();
 
-// All the necessary controller functions are already imported, no changes here.
+// Import all the necessary controller functions
 const {
   registerUser,
   loginUser,
   updatePassword,
   forgotPassword,
   resetPassword,
+  deleteAccount, // The new function for deleting an account
 } = require("../controllers/authController");
 
-// The protect middleware is also correctly imported.
+// Import our middleware for protecting routes
 const { protect } = require("../middleware/authMiddleware");
 
 //=============================================================================
@@ -29,13 +30,9 @@ router.post("/login", loginUser);
 // @desc    Initiate the password reset process by sending an email
 router.post("/forgot-password", forgotPassword);
 
-
-// --- THIS ROUTE HAS BEEN UPDATED ---
 // @route   PUT /api/auth/reset-password
-// @desc    Reset the user's password using the 6-digit code from the email
-// It no longer takes a token from the URL.
+// @desc    Reset the user's password using the 6-digit code
 router.put("/reset-password", resetPassword);
-// -----------------------------------
 
 
 //=============================================================================
@@ -45,5 +42,10 @@ router.put("/reset-password", resetPassword);
 // @route   PUT /api/auth/update-password
 // @desc    Update the password for the currently logged-in user
 router.put("/update-password", protect, updatePassword);
+
+// @route   DELETE /api/auth/delete-account
+// @desc    Delete the currently logged-in user's account and data
+router.delete("/delete-account", protect, deleteAccount);
+
 
 module.exports = router;

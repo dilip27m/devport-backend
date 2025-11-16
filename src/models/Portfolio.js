@@ -8,14 +8,19 @@ const PortfolioSchema = new mongoose.Schema({
     unique: true,
   },
 
-  // --- NEW FIELD ---
-  // Store the name of the template the user has selected.
   template: {
     type: String,
     required: true,
-    default: 'template1', // Default to template1 for new portfolios
+    default: 'template1',
   },
-  // -----------------
+
+  // --- THIS IS THE FIX ---
+  // We must add the `isPublished` field to the schema.
+  isPublished: {
+    type: Boolean,
+    default: false, // This ensures every new portfolio is private by default.
+  },
+  // -----------------------
 
   data: {
     type: mongoose.Schema.Types.Mixed,
