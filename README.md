@@ -1,164 +1,206 @@
- DevPort – Backend Setup Guide 
-1) Project Overview
+# 🚀 DevPort — Dynamic Portfolio Builder for Developers
 
-The DevPort backend is built using Express.js and MongoDB.
-It acts as the core API for saving user data, loading portfolio information, managing authentication, and handling deployment tasks.
+DevPort is built to go far beyond a traditional, static résumé. Instead of limiting your achievements to a single page, DevPort transforms your entire professional journey into a dynamic, interactive, and personalized portfolio—specially crafted for Computer Science Engineering students.
 
-It connects to:
+With DevPort, you can:
 
-MongoDB (for storing user data)
+- Showcase your projects, skills, achievements, and experience in an engaging, modern format.  
+- Store and manage all your career data in one place, update it effortlessly, and customize your portfolio style.  
+- Deploy your portfolio instantly and share a professional link across platforms like LinkedIn, GitHub, LeetCode, CodeChef, Hackathons, and even your résumé.  
+- Stand out from your peers with a portfolio that reflects your work, growth, and identity—much more effectively than any static PDF.  
 
-Cloudinary (for image hosting)
+DevPort empowers students to present themselves with clarity, creativity, and confidence, helping them reach the right opportunities and make a strong impact in the tech community.
 
-Nodemailer / Gmail SMTP (for sending verification or deploy emails)
+---
 
-The backend runs on http://localhost:5000
- and serves data to the Next.js frontend.
+## ✨ Features
 
-2️) Prerequisites
+### 🔹 Core User Features
+- **User Signup & Login** (email or username based)  
+- **Complete Account Management** — update password, delete account  
+- **Real-Time Live Editor** with instant preview  
+- **Private Preview Mode** (only the owner can see unpublished versions)  
+- **View & Select Portfolio Templates**  
+- **Multiple Portfolio Templates** designed for developers  
+- **Auto-Generated Public Portfolio Link** at `/p/[username]`  
+- **Upload résumé, certificates, images** using Cloudinary  
+- **Store all portfolio data in clean JSON format**  
+- **Edit/Update your portfolio anytime**  
+- **Secure public portfolio rendering**
 
-Before running the backend, make sure the following software is installed:
+### 🔹 Developer & System Features
+- **Dynamic template loader** (scalable architecture)  
+- **Cloudinary direct uploads**  
+- **JWT-based authentication**  
+- **MongoDB Atlas database**  
+- **Next.js App Router + Express.js API**  
+- **Responsive UI built with Tailwind CSS**  
 
-Node.js (v18 or above)
+---
 
-npm (comes with Node.js)
+## 🛠️ Technology Stack
 
-MongoDB (local or Atlas cluster)
+### **Frontend**
+- Next.js 14+ (App Router)  
+- Tailwind CSS  
+- lucide-react / react-icons  
+- Context API for global state (AuthContext)
 
-Git
+### **Backend**
+- Express.js  
+- MongoDB Atlas  
+- Cloudinary SDK  
+- JWT Authentication  
+- Nodemailer (Gmail SMTP)
 
-Optional tools:
+---
 
-Postman or curl (for testing APIs)
+## 🔗 Repository Links
 
-3️) Folder Structure (Backend Directory)
+- **Frontend Repository:**  
+  [https://github.com/dilip27m/devport-frontend](https://github.com/dilip27m/devport-frontend)
 
-Ensure you are inside the backend/ folder.
-You should see the following structure:
+- **Backend Repository:**  
+  [https://github.com/dilip27m/devport-backend](https://github.com/dilip27m/devport-backend)
 
-backend/
-│── controllers/
-│── models/
-│── routes/
-│── middleware/
-│── server.js
-│── package.json
-│── .env
-│── .env.example
+---
 
-4️) Create .env File
+## ⚙️ Frontend Setup (Next.js)
 
-You already have a working .env file.
-Here’s the correct content for your backend configuration 👇
+### 📦 Prerequisites
+- Node.js v18+  
+- npm or yarn  
 
+### 📥 Clone & Install
+
+```bash
+git clone https://github.com/dilip27m/devport-frontend
+cd devport-frontend
+npm install
+```
+
+### 🔐 Environment Variables
+
+Create `.env.local`:
+
+```bash
+cp .env.example .env.local
+```
+
+Inside `.env.local`:
+
+```env
+# Backend API URL
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+
+# Cloudinary
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+```
+
+### ▶️ Run Development Server
+
+```bash
+npm run dev
+```
+
+App runs at: 👉 [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 🖥️ Backend Setup (Express.js)
+
+### 📦 Clone & Install
+
+```bash
+git clone https://github.com/dilip27m/devport-backend
+cd devport-backend
+npm install
+```
+
+### 🔐 Environment Variables
+
+Create `.env`:
+
+```env
 PORT=5000
-MONGO_URI="mongodb+srv://devport:devport@cluster0.qrflpak.mongodb.net/Devport"
-JWT_SECRET=this_is_a_super_long_and_random_secret_string_for_my_jwt_12345
+MONGO_URI=your-mongodb-uri-here
+JWT_SECRET=choose-a-secret-key
 
-CLOUDINARY_CLOUD_NAME=dd2ltpkk1
-CLOUDINARY_API_KEY=335626455923257
-CLOUDINARY_API_SECRET=T62uFqhMlbrNBeeh26lqRy7iukU
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 
-EMAIL_USER=devport120@gmail.com
-EMAIL_PASS=devport3@123
+FRONTEND_URL=http://localhost:3000
 
+GMAIL_USER=
+GMAIL_APP_PASSWORD=
+```
 
-Explanation:
+**Note:** Make sure to replace `MONGO_URI` with your real MongoDB connection string and set a secure `JWT_SECRET`.
 
-PORT → Server runs on port 5000
+### ▶️ Run Backend Server
 
-MONGO_URI → Connection string for MongoDB Atlas
-
-JWT_SECRET → Used for authentication tokens
-
-CLOUDINARY_* → Credentials for image uploads
-
-EMAIL_* → For sending emails via Gmail
-
- Security Note :
-These credentials are for local demonstration only. In production, they should be hidden securely using environment secrets.
-
-5️) Install Dependencies
-
-Open your terminal and navigate to the backend folder:
-
-cd backend
-npm install
-
-
-This installs all necessary dependencies (Express, Mongoose, CORS, dotenv, Cloudinary, Nodemailer, etc.).
-
-6️) Start the Server
-
-After installation completes, start the backend using:
-
+```bash
 npm run dev
+```
 
+---
 
-If configured correctly, you should see:
+## 📁 Folder Structure (Frontend)
 
-Server running on port 5000
-Connected to MongoDB
+```
+src/
+ ├── app/(main)/         → Main pages: "/", "/login", "/editor", "/profile"
+ ├── app/p/[username]/   → Public portfolio routes
+ ├── app/preview/        → Private preview
+ ├── app/templates/      → Portfolio templates
+ ├── context/            → Auth Context
+ └── hooks/              → useCloudinaryUpload and other hooks
+```
 
+---
 
- The server is now live at:
- http://localhost:5000
+##  Screenshots & Preview
 
- 7️) Verify API Endpoints
+*(Add real images later)*
 
- 8️) Common Errors & Fixes
-Problem	 Solution
-MongoNetworkError	Check your internet and MongoDB URI in .env
-CORS errors	Ensure frontend URL is allowed (use cors() middleware)
-Port already in use	Change PORT value in .env
-“Cannot find module dotenv”	Run npm install dotenv
-“ReferenceError: require is not defined”	Ensure you’re running in Node environment (not browser)
+-  Landing Page
+-  Editor Page
+-  Templates Page
+-  Profile Page
+-  Deployed Portfolio Page
 
-9️) optional: Testing Email / Image Upload
+---
 
-To test Cloudinary and email sending:
+##  Future Scope
 
-Use /api/upload (if implemented) to upload sample images
+- More customizable templates
+- AI-generated portfolio summaries
+- Custom domain support
+- SEO meta customization
+- Analytics dashboard
+- Dark/light mode templates
+- Admin dashboard for managing users, templates, reports, and platform operations
+- **One-to-one premium template creation**
+  - Users can request a custom portfolio
+  - A developer/designer builds it according to their needs
+  - Payment processed like a freelancing workflow
+- More fields and sections for deeper personalization
+- **Template Marketplace**
+  - Developers can create and sell their own premium templates
+  - Users can purchase templates built by other creators
+- **Community template builder**
+  - Space where users can create, publish, customize, and sell templates
 
-Test /api/sendEmail or similar route (if configured) to send demo mails
+---
 
-Cloudinary uploads should appear under your Cloudinary dashboard:
-🔗 https://cloudinary.com/console
+## 🤝 Contributing
 
-10) Project Summary
+Contributions, feature requests, and issues are welcome!  
+Feel free to open a PR or start a discussion.
 
-The DevPort backend provides the backbone for all portfolio operations.
-It handles:
+---
 
-Saving and loading user data from MongoDB Atlas
+## 📄 License
 
-Managing authentication via JWT
-
-Hosting and retrieving images through Cloudinary
-
-Sending deployment or verification emails through Nodemailer
-
-Supporting real-time frontend updates and deployment triggers
-
-Tech Stack:
-
-Node.js + Express.js
-
-MongoDB + Mongoose
-
-Cloudinary API
-
-Nodemailer
-
-JSON Web Tokens (JWT) for secure access
-
-
-cd backend
-npm install
-npm run dev
-
-
-Test all API endpoints on
-http://localhost:5000/api
-
-and verify data flow to the frontend through real-time updates and database persistence.
+This project is licensed under the MIT License.

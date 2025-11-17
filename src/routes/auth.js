@@ -1,51 +1,50 @@
 const express = require("express");
 const router = express.Router();
+const rateLimit = require("express-rate-limit");
 
-// Import all the necessary controller functions
 const {
   registerUser,
   loginUser,
   updatePassword,
   forgotPassword,
   resetPassword,
-  deleteAccount, // The new function for deleting an account
+  deleteAccount,
+  sendOtp,
+  verifyOtp
 } = require("../controllers/authController");
 
-// Import our middleware for protecting routes
 const { protect } = require("../middleware/authMiddleware");
 
-//=============================================================================
-// PUBLIC ROUTES (No authentication required)
-//=============================================================================
+// Rate Limiters
+const otpLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 1,
+  message: { success: false, error: "Too many OTP requests. Wait 1 minute." }
+});
 
-// @route   POST /api/auth/register
-// @desc    Register a new user
+const verifyOtpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  message: { success: false, error: "Too many OTP attempts. Try again later." }
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: { success: false, error: "Too many reset attempts. Try again in 1 hour." }
+});
+
+// Routes
+router.post("/send-otp", otpLimiter, sendOtp);
+router.post("/verify-otp", verifyOtpLimiter, verifyOtp);
+
 router.post("/register", registerUser);
-
-// @route   POST /api/auth/login
-// @desc    Authenticate a user and get a token
 router.post("/login", loginUser);
 
-// @route   POST /api/auth/forgot-password
-// @desc    Initiate the password reset process by sending an email
-router.post("/forgot-password", forgotPassword);
-
-// @route   PUT /api/auth/reset-password
-// @desc    Reset the user's password using the 6-digit code
+router.post("/forgot-password", forgotPasswordLimiter, forgotPassword);
 router.put("/reset-password", resetPassword);
 
-
-//=============================================================================
-// PROTECTED ROUTES (Authentication required - valid JWT must be provided)
-//=============================================================================
-
-// @route   PUT /api/auth/update-password
-// @desc    Update the password for the currently logged-in user
 router.put("/update-password", protect, updatePassword);
-
-// @route   DELETE /api/auth/delete-account
-// @desc    Delete the currently logged-in user's account and data
 router.delete("/delete-account", protect, deleteAccount);
-
 
 module.exports = router;

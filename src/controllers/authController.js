@@ -2,37 +2,58 @@ const User = require("../models/User");
 const Portfolio = require("../models/Portfolio"); // <-- We need the Portfolio model
 const generateToken = require("../utils/generateToken");
 const sendEmail = require("../utils/sendEmail"); 
+const OTP = require("../models/OTP");
 const crypto = require("crypto"); 
+
+
+
 
 
 exports.registerUser = async (req, res) => {
   const { name, username, email, password } = req.body;
+
   try {
+    // Check if OTP is verified
+    const otpRecord = await OTP.findOne({ email });
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, error: "Email not verified. Please verify OTP." });
+    }
+
+    // OTP must not be expired
+    if (otpRecord.expiresAt < Date.now()) {
+      return res.status(400).json({ success: false, error: "OTP expired. Please request a new one." });
+    }
+
+    // Clean OTP after verification
+    await OTP.deleteOne({ email });
+
+    // Check if email/username already taken (safety)
     const userExists = await User.findOne({ $or: [{ email }, { username }] });
     if (userExists) {
       return res.status(400).json({ success: false, error: "User already exists" });
     }
+
     const user = await User.create({ name, username, email, password });
-    if (user) {
-      const token = generateToken(user._id);
-      res.status(201).json({
-        success: true,
-        token,
-        user: {
-          _id: user._id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
-        },
-      });
-    } else {
-      res.status(400).json({ success: false, error: "Invalid user data" });
-    }
+
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+      },
+    });
+
   } catch (error) {
     console.error("Registration Error:", error);
     res.status(500).json({ success: false, error: "Server Error" });
   }
 };
+
 
 
 exports.loginUser = async (req, res) => {
@@ -174,3 +195,83 @@ exports.deleteAccount = async (req, res) => {
   }
 };
 // ------------------------------------
+
+
+
+
+// Send OTP for email verification
+exports.sendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: "Invalid email format" });
+    }
+
+    // Check if email already registered
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: "Email already registered" });
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP (expires in 5 minutes)
+    await OTP.findOneAndUpdate(
+      { email },
+      { otp, expiresAt: Date.now() + 5 * 60 * 1000 },
+      { upsert: true }
+    );
+
+    // Email content
+    const message = `
+       <h2>Your DevPort Verification Code</h2>
+       <p>Your OTP is:</p>
+       <h1>${otp}</h1>
+       <p>This code is valid for 5 minutes.</p>
+    `;
+
+    // Send email
+    await sendEmail({
+      email,
+      subject: "DevPort Email Verification Code",
+      html: message,
+    });
+
+    return res.status(200).json({ success: true, message: "OTP sent successfully" });
+
+  } catch (error) {
+    console.error("Send OTP Error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const record = await OTP.findOne({ email });
+
+    if (!record) {
+      return res.status(400).json({ success: false, message: "OTP not found" });
+    }
+
+    if (record.expiresAt < Date.now()) {
+      return res.status(400).json({ success: false, message: "OTP expired" });
+    }
+
+    if (record.otp !== otp) {
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
+    }
+
+    return res.status(200).json({ success: true, message: "OTP verified" });
+
+  } catch (error) {
+    console.error("Verify OTP Error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
