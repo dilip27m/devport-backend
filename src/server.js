@@ -9,6 +9,7 @@ dotenv.config();
 
 // Initialize Express app
 const app = express();
+app.set("trust proxy", 1);
 
 // --- Cloudinary Configuration ---
 //  Configures the Cloudinary library with your credentials from the .env file.
