@@ -1,8 +1,8 @@
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const UserSchema = new mongoose.Schema({
-  // New field for the public URL and profile identifier
   username: {
     type: String,
     required: [true, "Please provide a username"],
@@ -10,15 +10,12 @@ const UserSchema = new mongoose.Schema({
     lowercase: true,
     minlength: 3,
     maxlength: 20,
-    // Regex to allow only letters, numbers, and single hyphens
     match: [/^[a-zA-Z0-9-]+$/, "Username can only contain letters, numbers, and hyphens"],
   },
-  
   name: {
     type: String,
     required: [true, "Please provide a name"],
   },
-
   email: {
     type: String,
     required: [true, "Please provide an email"],
@@ -28,21 +25,19 @@ const UserSchema = new mongoose.Schema({
       "Please provide a valid email",
     ],
   },
-
   password: {
     type: String,
     required: [true, "Please add a password"],
     minlength: 6,
     select: false,
   },
-
+  passwordResetToken: String,
+  passwordResetExpires: Date,
 }, {
   timestamps: true
 });
 
-
-// (The pre-save hook and matchPassword method remain exactly the same)
-
+// This pre-save hook for hashing the main password remains unchanged.
 UserSchema.pre("save", async function (next) {
   if (!this.isModified("password")) {
     next();
@@ -52,9 +47,29 @@ UserSchema.pre("save", async function (next) {
   next();
 });
 
+// This method for comparing passwords during login remains unchanged.
 UserSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
+// --- THIS METHOD HAS BEEN UPDATED ---
+UserSchema.methods.getResetPasswordToken = function () {
+  // Generate a 6-digit code instead of a random string
+  const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // The rest of the logic is the same: Hash the token for secure storage.
+  this.passwordResetToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Set the expiration time (10 minutes from now).
+  this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
+
+  // Return the UN-HASHED 6-digit code. This is what we will email to the user.
+  return resetToken;
+};
+// ------------------------------------
 
 module.exports = mongoose.model("User", UserSchema);
+

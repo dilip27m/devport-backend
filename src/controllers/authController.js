@@ -1,37 +1,53 @@
 const User = require("../models/User");
+const Portfolio = require("../models/Portfolio"); // <-- We need the Portfolio model
 const generateToken = require("../utils/generateToken");
+const sendEmail = require("../utils/sendEmail"); 
+const OTP = require("../models/OTP");
+const crypto = require("crypto"); 
 
-// @desc    Register a new user
-// @route   POST /api/auth/register
-// @access  Public
+
+
+
+
 exports.registerUser = async (req, res) => {
-  // ... (the registration code we already wrote is perfect)
   const { name, username, email, password } = req.body;
 
   try {
-    const userExists = await User.findOne({ $or: [{ email }, { username }] });
+    // Check if OTP is verified
+    const otpRecord = await OTP.findOne({ email });
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, error: "Email not verified. Please verify OTP." });
+    }
 
+    // OTP must not be expired
+    if (otpRecord.expiresAt < Date.now()) {
+      return res.status(400).json({ success: false, error: "OTP expired. Please request a new one." });
+    }
+
+    // Clean OTP after verification
+    await OTP.deleteOne({ email });
+
+    // Check if email/username already taken (safety)
+    const userExists = await User.findOne({ $or: [{ email }, { username }] });
     if (userExists) {
       return res.status(400).json({ success: false, error: "User already exists" });
     }
 
     const user = await User.create({ name, username, email, password });
 
-    if (user) {
-      const token = generateToken(user._id);
-      res.status(201).json({
-        success: true,
-        token,
-        user: {
-          _id: user._id,
-          name: user.name,
-          username: user.username,
-          email: user.email,
-        },
-      });
-    } else {
-      res.status(400).json({ success: false, error: "Invalid user data" });
-    }
+    const token = generateToken(user._id);
+
+    res.status(201).json({
+      success: true,
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+      },
+    });
+
   } catch (error) {
     console.error("Registration Error:", error);
     res.status(500).json({ success: false, error: "Server Error" });
@@ -39,28 +55,16 @@ exports.registerUser = async (req, res) => {
 };
 
 
-// --- NEW FUNCTION STARTS HERE ---
 
-// @desc    Authenticate a user & get token
-// @route   POST /api/auth/login
-// @access  Public
 exports.loginUser = async (req, res) => {
-  // 1. Get the email and password from the request body
   const { email, password } = req.body;
-
   try {
-    // 2. Find the user in the database by their email.
-    // We use .select('+password') because we need to get the hashed password
-    // for comparison, even though it's excluded by default in our model.
-    const user = await User.findOne({ email }).select("+password");
-
-    // 3. Check if the user exists AND if the passwords match.
-    // We use our custom `matchPassword` method from the User model.
+    const loginIdentifier = email.toLowerCase();
+    const user = await User.findOne({
+      $or: [{ email: loginIdentifier }, { username: loginIdentifier }],
+    }).select("+password");
     if (user && (await user.matchPassword(password))) {
-      // 4. If everything is correct, generate a new token
       const token = generateToken(user._id);
-
-      // 5. Send the success response back
       res.status(200).json({
         success: true,
         token,
@@ -72,8 +76,7 @@ exports.loginUser = async (req, res) => {
         },
       });
     } else {
-      // If user not found or password doesn't match, send an error
-      res.status(401).json({ success: false, error: "Invalid email or password" });
+      res.status(401).json({ success: false, error: "Invalid credentials" });
     }
   } catch (error) {
     console.error("Login Error:", error);
@@ -83,47 +86,192 @@ exports.loginUser = async (req, res) => {
 
 
 exports.updatePassword = async (req, res) => {
-  // 1. Get the current and new passwords from the request body
   const { currentPassword, newPassword } = req.body;
-
-  // Basic validation
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ success: false, error: "Please provide both current and new passwords." });
   }
-  
   if (newPassword.length < 6) {
     return res.status(400).json({ success: false, error: "New password must be at least 6 characters long." });
   }
-
   try {
-    // 2. The `protect` middleware has already found the user and attached it to `req.user`.
-    //    We need to find them again, but this time select the password field.
     const user = await User.findById(req.user._id).select("+password");
-
-    // This should theoretically never happen if the user has a valid token, but it's a good safety check.
     if (!user) {
       return res.status(404).json({ success: false, error: "User not found" });
     }
-
-    // 3. Use our model's method to verify the current password
     const isMatch = await user.matchPassword(currentPassword);
-
     if (!isMatch) {
       return res.status(401).json({ success: false, error: "Incorrect current password" });
     }
-
-    // 4. If the current password is correct, set the new password
     user.password = newPassword;
-
-    // 5. Save the user. This is crucial because it will trigger our 'pre-save' hook,
-    //    which automatically hashes the new password before saving it.
     await user.save();
-
-    // 6. Send back a success response
     res.status(200).json({ success: true, message: "Password updated successfully" });
-
   } catch (error) {
     console.error("Update Password Error:", error);
     res.status(500).json({ success: false, error: "Server Error" });
+  }
+};
+
+exports.forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(200).json({ success: true, message: "Email sent if a user with that email exists." });
+    }
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+    const message = `
+      <h1>You have requested a password reset</h1>
+      <p>Your password reset code is:</p>
+      <h2 style="font-size: 24px; letter-spacing: 2px;">${resetToken}</h2>
+      <p>This code will expire in 10 minutes.</p>
+    `;
+    await sendEmail({
+      email: user.email,
+      subject: "DevPort - Your Password Reset Code",
+      html: message,
+    });
+    res.status(200).json({ success: true, message: "Email sent if a user with that email exists." });
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    if (user) {
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+        await user.save({ validateBeforeSave: false });
+    }
+    res.status(500).json({ success: false, error: "Server Error" });
+  }
+};
+
+exports.resetPassword = async (req, res) => {
+  const { resetCode, email, password } = req.body;
+  if (!resetCode || !email || !password) {
+      return res.status(400).json({ success: false, error: "Please provide email, reset code, and a new password." });
+  }
+  try {
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(resetCode)
+      .digest("hex");
+    const user = await User.findOne({
+      email: email,
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() },
+    });
+    if (!user) {
+      return res.status(400).json({ success: false, error: "Invalid or expired reset code" });
+    }
+    user.password = password;
+    user.passwordResetToken = undefined;
+    user.passwordResetExpires = undefined;
+    await user.save();
+    res.status(200).json({ success: true, message: "Password reset successful" });
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+    res.status(500).json({ success: false, error: "Server Error" });
+  }
+};
+
+// --- NEW FUNCTION: DELETE ACCOUNT ---
+// @desc    Delete user account and all associated data
+// @route   DELETE /api/auth/delete-account
+// @access  Private (Protected)
+exports.deleteAccount = async (req, res) => {
+  try {
+    // The `protect` middleware gives us the ID of the logged-in user
+    const userId = req.user._id;
+
+    // First, delete the user's associated portfolio data to prevent orphans.
+    await Portfolio.deleteOne({ userId: userId });
+
+    // Then, delete the user document itself.
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({ success: true, message: "Account deleted successfully." });
+
+  } catch (error) {
+    console.error("Delete Account Error:", error);
+    res.status(500).json({ success: false, error: "Server Error" });
+  }
+};
+// ------------------------------------
+
+
+
+
+// Send OTP for email verification
+exports.sendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: "Invalid email format" });
+    }
+
+    // Check if email already registered
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ success: false, message: "Email already registered" });
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP (expires in 5 minutes)
+    await OTP.findOneAndUpdate(
+      { email },
+      { otp, expiresAt: Date.now() + 5 * 60 * 1000 },
+      { upsert: true }
+    );
+
+    // Email content
+    const message = `
+       <h2>Your DevPort Verification Code</h2>
+       <p>Your OTP is:</p>
+       <h1>${otp}</h1>
+       <p>This code is valid for 5 minutes.</p>
+    `;
+
+    // Send email
+    await sendEmail({
+      email,
+      subject: "DevPort Email Verification Code",
+      html: message,
+    });
+
+    return res.status(200).json({ success: true, message: "OTP sent successfully" });
+
+  } catch (error) {
+    console.error("Send OTP Error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+
+exports.verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    const record = await OTP.findOne({ email });
+
+    if (!record) {
+      return res.status(400).json({ success: false, message: "OTP not found" });
+    }
+
+    if (record.expiresAt < Date.now()) {
+      return res.status(400).json({ success: false, message: "OTP expired" });
+    }
+
+    if (record.otp !== otp) {
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
+    }
+
+    return res.status(200).json({ success: true, message: "OTP verified" });
+
+  } catch (error) {
+    console.error("Verify OTP Error:", error);
+    return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
