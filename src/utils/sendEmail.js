@@ -1,30 +1,33 @@
-const { Resend } = require("resend");
-
-// Initialize Resend with your API key
-const resend = new Resend(process.env.RESEND_API_KEY);
+const brevo = require('@getbrevo/brevo');
 
 const sendEmail = async (options) => {
-  const sender = process.env.EMAIL_FROM || "onboarding@resend.dev"; // Default to test email
+  // 1. Configure the API client
+  const apiInstance = new brevo.TransactionalEmailsApi();
+  const apiKey = apiInstance.authentications['apiKey'];
+  apiKey.apiKey = process.env.BREVO_API_KEY;
+
+  // 2. Define the email content
+  const sendSmtpEmail = new brevo.SendSmtpEmail();
+
+  sendSmtpEmail.subject = options.subject;
+  sendSmtpEmail.htmlContent = options.html;
+  sendSmtpEmail.sender = { 
+    name: "DevPort", 
+    email: process.env.EMAIL_FROM // Must be the verified email in Brevo
+  };
+  sendSmtpEmail.to = [
+    { email: options.email }
+  ];
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: `DevPort <${sender}>`,
-      to: [options.email], // Resend expects an array of recipients
-      subject: options.subject,
-      html: options.html,
-    });
-
-    if (error) {
-      console.error("Resend API Error:", error);
-      throw new Error(error.message);
-    }
-
-    console.log("Email sent successfully via Resend:", data.id);
+    // 3. Send the email
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    console.log('Email sent successfully via Brevo. Message ID:', data.messageId);
     return data;
-  } catch (err) {
-    console.error("Error sending email:", err);
-    // Throw error so the controller knows it failed
-    throw new Error("Email could not be sent. " + err.message);
+  } catch (error) {
+    console.error('Error sending email via Brevo:', error);
+    // Throw error so the controller handles it correctly
+    throw new Error(error.body?.message || "Email could not be sent");
   }
 };
 
