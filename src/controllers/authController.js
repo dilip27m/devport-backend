@@ -1,13 +1,9 @@
 const User = require("../models/User");
-const Portfolio = require("../models/Portfolio"); // <-- We need the Portfolio model
+const Portfolio = require("../models/Portfolio");
 const generateToken = require("../utils/generateToken");
 const sendEmail = require("../utils/sendEmail"); 
 const OTP = require("../models/OTP");
 const crypto = require("crypto"); 
-
-
-
-
 
 exports.registerUser = async (req, res) => {
   const { name, username, email, password } = req.body;
@@ -27,7 +23,7 @@ exports.registerUser = async (req, res) => {
     // Clean OTP after verification
     await OTP.deleteOne({ email });
 
-    // Check if email/username already taken (safety)
+    // Check if email/username already taken (safety check)
     const userExists = await User.findOne({ $or: [{ email }, { username }] });
     if (userExists) {
       return res.status(400).json({ success: false, error: "User already exists" });
@@ -54,8 +50,6 @@ exports.registerUser = async (req, res) => {
   }
 };
 
-
-
 exports.loginUser = async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -63,6 +57,7 @@ exports.loginUser = async (req, res) => {
     const user = await User.findOne({
       $or: [{ email: loginIdentifier }, { username: loginIdentifier }],
     }).select("+password");
+    
     if (user && (await user.matchPassword(password))) {
       const token = generateToken(user._id);
       res.status(200).json({
@@ -83,7 +78,6 @@ exports.loginUser = async (req, res) => {
     res.status(500).json({ success: false, error: "Server Error" });
   }
 };
-
 
 exports.updatePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
@@ -172,48 +166,46 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
-// --- NEW FUNCTION: DELETE ACCOUNT ---
-// @desc    Delete user account and all associated data
-// @route   DELETE /api/auth/delete-account
-// @access  Private (Protected)
 exports.deleteAccount = async (req, res) => {
   try {
-    // The `protect` middleware gives us the ID of the logged-in user
     const userId = req.user._id;
-
-    // First, delete the user's associated portfolio data to prevent orphans.
     await Portfolio.deleteOne({ userId: userId });
-
-    // Then, delete the user document itself.
     await User.findByIdAndDelete(userId);
-
     res.status(200).json({ success: true, message: "Account deleted successfully." });
-
   } catch (error) {
     console.error("Delete Account Error:", error);
     res.status(500).json({ success: false, error: "Server Error" });
   }
 };
-// ------------------------------------
 
-
-
-
-// Send OTP for email verification
+// --- UPDATED Send OTP Function ---
 exports.sendOtp = async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, username } = req.body;
 
-    // Validate email format
+    // 1. Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return res.status(400).json({ success: false, message: "Invalid email format" });
+      // ERROR FIX: Changed 'message' to 'error' so frontend sees it
+      return res.status(400).json({ success: false, error: "Invalid email format" });
     }
 
-    // Check if email already registered
+    // 2. Check if EMAIL is already registered
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ success: false, message: "Email already registered" });
+      // ERROR FIX: Changed 'message' to 'error'
+      return res.status(400).json({ success: false, error: "Email already registered" });
+    }
+
+    // 3. NEW: Check if USERNAME is already taken (if provided)
+    if (username) {
+      // Case-insensitive check for username
+      const existingUsername = await User.findOne({ 
+        username: { $regex: new RegExp(`^${username}$`, "i") } 
+      });
+      if (existingUsername) {
+        return res.status(400).json({ success: false, error: "Username is already taken" });
+      }
     }
 
     // Generate OTP
@@ -241,15 +233,17 @@ exports.sendOtp = async (req, res) => {
       html: message,
     });
 
+    // SUCCESS: Keep 'message' here as frontend usually looks for success messages in 'message'
     return res.status(200).json({ success: true, message: "OTP sent successfully" });
 
   } catch (error) {
     console.error("Send OTP Error:", error);
-    return res.status(500).json({ success: false, message: "Server Error" });
+    // ERROR FIX: Changed 'message' to 'error'
+    return res.status(500).json({ success: false, error: "Server Error" });
   }
 };
 
-
+// --- UPDATED Verify OTP Function ---
 exports.verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -257,21 +251,25 @@ exports.verifyOtp = async (req, res) => {
     const record = await OTP.findOne({ email });
 
     if (!record) {
-      return res.status(400).json({ success: false, message: "OTP not found" });
+      // ERROR FIX: Changed 'message' to 'error'
+      return res.status(400).json({ success: false, error: "OTP not found" });
     }
 
     if (record.expiresAt < Date.now()) {
-      return res.status(400).json({ success: false, message: "OTP expired" });
+      // ERROR FIX: Changed 'message' to 'error'
+      return res.status(400).json({ success: false, error: "OTP expired" });
     }
 
     if (record.otp !== otp) {
-      return res.status(400).json({ success: false, message: "Invalid OTP" });
+      // ERROR FIX: Changed 'message' to 'error'
+      return res.status(400).json({ success: false, error: "Invalid OTP" });
     }
 
     return res.status(200).json({ success: true, message: "OTP verified" });
 
   } catch (error) {
     console.error("Verify OTP Error:", error);
-    return res.status(500).json({ success: false, message: "Server Error" });
+    // ERROR FIX: Changed 'message' to 'error'
+    return res.status(500).json({ success: false, error: "Server Error" });
   }
 };
