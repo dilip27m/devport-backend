@@ -119,11 +119,14 @@ exports.forgotPassword = async (req, res) => {
       <h2 style="font-size: 24px; letter-spacing: 2px;">${resetToken}</h2>
       <p>This code will expire in 10 minutes.</p>
     `;
-    await sendEmail({
+
+    // OPTIMIZATION: Fire and Forget
+    sendEmail({
       email: user.email,
       subject: "DevPort - Your Password Reset Code",
       html: message,
-    });
+    }).catch(err => console.error("Forgot Password Email Failed:", err));
+
     res.status(200).json({ success: true, message: "Email sent if a user with that email exists." });
   } catch (error) {
     console.error("Forgot Password Error:", error);
@@ -177,7 +180,7 @@ exports.deleteAccount = async (req, res) => {
   }
 };
 
-// --- UPDATED Send OTP Function ---
+// --- UPDATED Send OTP Function (Fire and Forget) ---
 exports.sendOtp = async (req, res) => {
   try {
     const { email, username } = req.body;
@@ -185,20 +188,17 @@ exports.sendOtp = async (req, res) => {
     // 1. Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      // ERROR FIX: Changed 'message' to 'error' so frontend sees it
       return res.status(400).json({ success: false, error: "Invalid email format" });
     }
 
     // 2. Check if EMAIL is already registered
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      // ERROR FIX: Changed 'message' to 'error'
       return res.status(400).json({ success: false, error: "Email already registered" });
     }
 
-    // 3. NEW: Check if USERNAME is already taken (if provided)
+    // 3. Check if USERNAME is already taken (if provided)
     if (username) {
-      // Case-insensitive check for username
       const existingUsername = await User.findOne({ 
         username: { $regex: new RegExp(`^${username}$`, "i") } 
       });
@@ -211,6 +211,7 @@ exports.sendOtp = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // Save OTP (expires in 5 minutes)
+    // We MUST await this DB call to ensure OTP is valid before the user gets the email
     await OTP.findOneAndUpdate(
       { email },
       { otp, expiresAt: Date.now() + 5 * 60 * 1000 },
@@ -225,24 +226,25 @@ exports.sendOtp = async (req, res) => {
        <p>This code is valid for 5 minutes.</p>
     `;
 
-    // Send email
-    await sendEmail({
+    // OPTIMIZATION: Removed 'await'. 
+    // This allows the response to return immediately while the email sends in the background.
+    sendEmail({
       email,
       subject: "DevPort Email Verification Code",
       html: message,
+    }).catch(err => {
+      // Log error silently so we don't crash the server process
+      console.error(`[Background Email Error] Failed to send OTP to ${email}:`, err.message);
     });
 
-    // SUCCESS: Keep 'message' here as frontend usually looks for success messages in 'message'
     return res.status(200).json({ success: true, message: "OTP sent successfully" });
 
   } catch (error) {
     console.error("Send OTP Error:", error);
-    // ERROR FIX: Changed 'message' to 'error'
     return res.status(500).json({ success: false, error: "Server Error" });
   }
 };
 
-// --- UPDATED Verify OTP Function ---
 exports.verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -250,17 +252,14 @@ exports.verifyOtp = async (req, res) => {
     const record = await OTP.findOne({ email });
 
     if (!record) {
-      // ERROR FIX: Changed 'message' to 'error'
       return res.status(400).json({ success: false, error: "OTP not found" });
     }
 
     if (record.expiresAt < Date.now()) {
-      // ERROR FIX: Changed 'message' to 'error'
       return res.status(400).json({ success: false, error: "OTP expired" });
     }
 
     if (record.otp !== otp) {
-      // ERROR FIX: Changed 'message' to 'error'
       return res.status(400).json({ success: false, error: "Invalid OTP" });
     }
 
@@ -268,7 +267,6 @@ exports.verifyOtp = async (req, res) => {
 
   } catch (error) {
     console.error("Verify OTP Error:", error);
-    // ERROR FIX: Changed 'message' to 'error'
     return res.status(500).json({ success: false, error: "Server Error" });
   }
 };
