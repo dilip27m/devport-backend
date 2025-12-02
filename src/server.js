@@ -50,6 +50,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/portfolio", portfolioRoutes);
 app.use("/api/public/portfolio", publicPortfolioRoutes);
 app.use("/api/upload", uploadRoutes);
+app.get("/health", (req, res) => {
+  res.status(200).send("I am awake");
+});
 
 // --- Server Initialization ---
 const PORT = process.env.PORT;
