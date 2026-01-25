@@ -5,7 +5,14 @@ const PortfolioSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
-    unique: true,
+    // Removed unique: true to allow multiple portfolios per user
+  },
+
+  title: {
+    type: String,
+    required: true,
+    default: 'My Portfolio',
+    trim: true,
   },
 
   template: {
@@ -14,13 +21,10 @@ const PortfolioSchema = new mongoose.Schema({
     default: 'template1',
   },
 
-  // --- THIS IS THE FIX ---
-  // We must add the `isPublished` field to the schema.
   isPublished: {
     type: Boolean,
-    default: false, // This ensures every new portfolio is private by default.
+    default: false,
   },
-  // -----------------------
 
   data: {
     type: mongoose.Schema.Types.Mixed,
@@ -32,5 +36,11 @@ const PortfolioSchema = new mongoose.Schema({
     default: Date.now,
   },
 });
+
+// Index for efficient queries - find all portfolios for a user
+PortfolioSchema.index({ userId: 1, lastUpdatedAt: -1 });
+
+// Index for finding the published portfolio for a user
+PortfolioSchema.index({ userId: 1, isPublished: 1 });
 
 module.exports = mongoose.model("Portfolio", PortfolioSchema);
