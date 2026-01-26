@@ -1,37 +1,43 @@
 const express = require("express");
 const router = express.Router();
 
-// 1. Import the new controller functions
 const {
   savePortfolio,
   getPortfolio,
-  publishPortfolio,   // <-- Import new
-  unpublishPortfolio, // <-- Import new
+  getAllPortfolios,
+  publishPortfolio,
+  unpublishPortfolio,
+  deletePortfolio,
 } = require("../controllers/portfolioController");
 
-// The protect middleware is correctly imported
 const { protect } = require("../middleware/authMiddleware");
 
+// @route   GET /api/portfolio
+// @desc    Get all portfolios for logged-in user
+router.get("/", protect, getAllPortfolios);
 
-// This route handles saving/updating portfolio data.
-// @route POST /api/portfolio
+// @route   GET /api/portfolio/:portfolioId
+// @desc    Get a specific portfolio by ID
+router.get("/:portfolioId", protect, getPortfolio);
+
+// @route   POST /api/portfolio
+// @desc    Create a new portfolio
 router.post("/", protect, savePortfolio);
 
-// This route handles fetching the logged-in user's portfolio data for the editor.
-// @route GET /api/portfolio/:userId (the userId param is ignored for security)
-router.get("/:userId", protect, getPortfolio);
+// @route   PUT /api/portfolio/:portfolioId
+// @desc    Update an existing portfolio
+router.put("/:portfolioId", protect, savePortfolio);
 
+// @route   PUT /api/portfolio/:portfolioId/publish
+// @desc    Publish a specific portfolio (unpublishes others)
+router.put("/:portfolioId/publish", protect, publishPortfolio);
 
-// --- NEW PROTECTED ROUTES ---
+// @route   PUT /api/portfolio/:portfolioId/unpublish
+// @desc    Unpublish a specific portfolio
+router.put("/:portfolioId/unpublish", protect, unpublishPortfolio);
 
-// @route PUT /api/portfolio/publish
-// @desc Sets the user's portfolio to be public
-router.put("/publish", protect, publishPortfolio);
-
-// @route PUT /api/portfolio/unpublish
-// @desc Sets the user's portfolio to be private
-router.put("/unpublish", protect, unpublishPortfolio);
-// ----------------------------
-
+// @route   DELETE /api/portfolio/:portfolioId
+// @desc    Delete a specific portfolio
+router.delete("/:portfolioId", protect, deletePortfolio);
 
 module.exports = router;
